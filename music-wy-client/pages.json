@@ -13,7 +13,14 @@
             }
             
         }
-    ]
+        ,{
+            "path" : "pages/detail/detail",
+            "style" :                                                                           {
+                "navigationStyle": "custom"
+            }
+            
+        }
+    ],
 	// "globalStyle": {
 		// "navigationStyle":"custom"
 		// "navigationBarTextStyle": "black",
@@ -22,4 +29,14 @@
 		// "backgroundColor": "#F8F8F8"
 	// }
 	// "uniIdRouter": {}
+	"condition": { //模式配置，仅开发期间生效
+		"current":0, //当前激活的模式（list的索引值）
+		"list": [
+			{
+				"name": "list", //模式名称
+				"path": "pages/detail/detail", //启动页面
+				"query": "listId=2055934628" //启动参数，在页面的onLoad函数里面得到
+			}
+		]
+	}
 }

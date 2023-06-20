@@ -44,7 +44,9 @@
 					
 					<!-- 歌单列表body：循环显示所有歌曲 -->
 					<view class="list-music-item" 
-						v-for="(item,index) in playlist.tracks" :key="index">
+						v-for="(item,index) in playlist.tracks" :key="index"
+						@tap="handleToDetail(item.id)"
+					>
 						<view class="list-music-top">{{index+1}}</view>
 						<view class="list-music-song">
 							<view>{{item.name}}</view>
@@ -78,17 +80,12 @@ import musichead from "../../componnets/musichead/musichead.vue"
 import '@/common/css/iconfont.css' 
 
 let playlist = ref({
-	coverImgUrl: '', //头像
+	//对于取嵌套的对象内的值，就要在这里列出来，防止报错
 	creator:{ //歌单创建者
-		avatarUrl:'', //创建者头像
-		nickname: '', //创建者名字
+		// avatarUrl:'', //创建者头像
+		// nickname: '', //创建者名字
 	},
-	description: '', //歌单描述信息
-	name:'', //歌单名
-	playCount:0, //播放数
-	
-	trackCount: '',//歌单内歌曲数量
-	tracks: [], //歌单数组，包含了所有歌曲的信息
+
 })
 
 //歌曲的权限：是否是SQ、独家
@@ -106,9 +103,6 @@ let playCount = computed(function(){
 })
 
 let isLoading = ref(true);
-
-
-console.log("playCount: ",playCount)
 
 onLoad((options)=>{
 	//进一步优化：在loading时显示一个loading插件，onLoad周期开始时就显示，
@@ -133,6 +127,11 @@ onLoad((options)=>{
 	})
 })
 
+function handleToDetail(songId){
+	uni.navigateTo({
+		url: '/pages/detail/detail?songId='+songId,
+	});
+}
 
 </script>
 
