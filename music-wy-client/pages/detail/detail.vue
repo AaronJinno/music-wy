@@ -6,20 +6,21 @@
 		<view class="container">
 			<scroll-view scroll-y="true">
 				<!-- 封面区域 -->
-				<view class="detail-play">
-					<image :src="songDetailData.al.picUrl" mode=""></image>
-					<text class="iconfont icon-zanting"></text>
+				<view class="detail-play" @tap="handleToPlay">
+					<image :src="songDetailData.al.picUrl" :class="{'detail-play-run' : isPlayRotate}"></image>
+					<text class="iconfont" :class="iconPlay"></text>
 					<view></view>
 				</view>
 				
 				<!-- 歌词区域 -->
 				<view class="detail-lyric">
 					<!-- 歌词内容：歌词内容的容器要比歌词区域大，这样歌词才能滚动 -->
-					<view class="detail-lyric-wrap">
+					<view class="detail-lyric-wrap"
+						:style="{ transform: 'translateY('+ -( lyricIndex -1) * 82 +'rpx)'}">
 						<!-- 设计：歌词区域显示三行歌词，其中一行处于选中状态active-->
 						<view class="detail-lyric-item" 
 							v-for="(item,index) in songLyricData" :key="index"
-							:class="{active:lyricIndex == index}"
+							:class="{ active : lyricIndex == index}"
 						>
 							
 							{{item.lyric}}
@@ -33,6 +34,7 @@
 					<!-- 歌单列表：相似歌曲的数据需要从API获取，并循环遍历 -->
 					<view class="detail-like-item" 
 						v-for="(item,index) in songSimiData" :key="index"
+						@tap="handleSimiPlay(item.id)"
 					>
 						<!-- 歌曲左边：歌曲的图片 -->
 						<view class="detail-like-img">
@@ -100,7 +102,7 @@
 </template>
 
 <script setup>
-import {onLoad} from '@dcloudio/uni-app'
+import {onLoad,onUnload,onHide} from '@dcloudio/uni-app'
 import musichead from "../../componnets/musichead/musichead"
 import { ref,computed} from 'vue'
 import '@/common/css/iconfont.css' 
@@ -121,7 +123,7 @@ let songCommentData = ref([])
 let songLyricData = ref([])
 
 // 激活的歌词：通过该值确定哪行歌词被激活，默认是第一行
-let lyricIndex = ref(0)
+let lyricIndex = ref(1)
 
 //对点赞数进行格式化
 let likedCount = computed(function(){
@@ -144,6 +146,65 @@ let commentDate = computed(function(){
 	}
 })
 
+// 控制播放图标：播放时和暂停时，图标是不同的，默认显示暂停图标
+let iconPlay = ref("icon-zanting")
+// 控制歌曲封面是否旋转，播放时选择，暂停时不旋转
+let isPlayRotate = ref(true)
+
+// 全局创建播放器对象，方便后续访问
+let innerAudioContext = {}
+
+// 点击事件：控制播放与暂停
+function handleToPlay(){
+	// 判断当前是否是暂停状态
+	if(innerAudioContext.paused){
+		innerAudioContext.play();
+	}else{
+		innerAudioContext.pause();
+	}
+}
+// 播放相似列表的歌曲
+function handleSimiPlay(songId){
+	// 原地跳转会有bug，因为没有触发onUnload事件，因此这里要手动停止播放
+	innerAudioContext.stop();
+	cancelLyricIndex();
+	
+	uni.navigateTo({
+		url: '/pages/detail/detail?songId='+songId,
+	});
+}
+
+
+// 创建定时器
+let  timer = "";
+// 定时器：监听播放的时间，以便于和激活的歌词时间匹配
+function listenLyricIndex(){
+	// 清除旧的定时器
+	clearInterval(timer);
+	// songLyricData = songLyricData._rawValue
+	let songLyric = songLyricData.value
+	
+	timer = setInterval(()=>{
+		// 遍历歌词数据所在的数组
+		for(let i=0;i<songLyric.length;i++){	
+			if(innerAudioContext.currentTime > songLyric[songLyric.length-1].time){
+				// lyricIndex = songLyric.length-1
+				lyricIndex.value = songLyric.length-1
+				break;
+			}
+			
+			if(innerAudioContext.currentTime > songLyric[i].time && innerAudioContext.currentTime < songLyric[i+1].time){
+				// lyricIndex = i;
+				lyricIndex.value = i;
+			}				
+		}
+		console.log(lyricIndex.value);
+	},500)
+}
+// 取消定时器的方法：停止播放时，暂停计时器
+function cancelLyricIndex(){
+	clearInterval(timer);
+}
 
 //详情页的数据涉及到了5个API，这里采用Promise.all，当所有数据都获取后再进行处理
 function getMusic(songId){
@@ -151,7 +212,8 @@ function getMusic(songId){
 		songDetail(songId), 
 		songSimi(songId),
 		songComment(songId),
-		songLyric(songId)
+		songLyric(songId),
+		songUrl(songId)
 	]).then((res)=>{
 		console.log(res);
 		//res[0]:表示promise数组中第一个Promise的返回值，以此类推
@@ -197,6 +259,37 @@ function getMusic(songId){
 			// console.log(result);
 			
 		}
+		if(res[4].data.code == '200'){
+			// bgAudioManager = uni.getBackgroundAudioManager();
+			// bgAudioManager.title = songDetail.name;
+			// bgAudioManager.src = res[4].data.data[0].url
+			innerAudioContext = uni.createInnerAudioContext();
+			innerAudioContext.autoplay = true;
+			innerAudioContext.src = res[4].data.data[0].url
+			listenLyricIndex()
+			innerAudioContext.onPlay(() => {
+				// 监听播放状态的回调
+				console.log('开始播放');
+				listenLyricIndex()
+				// 设置播放时的“播放|暂停”图标
+				iconPlay.value = "icon-zanting"
+				isPlayRotate.value = true
+			});
+			innerAudioContext.onPause(()=>{
+				// 监听暂停状态的回调
+				console.log('暂停播放')
+				// 修改播放状态：控制播放封面是否旋转
+				iconPlay.value = "icon-bofang"
+				isPlayRotate.value = false
+				//暂停计时器
+				cancelLyricIndex();
+			})
+			
+			innerAudioContext.onError((res) => {
+			  console.log(res.errMsg);
+			  console.log(res.errCode);
+			});
+		}
 		
 	})
 }
@@ -212,6 +305,20 @@ onLoad((options)=>{
 	console.log(options.songId);
 	//在这里调用获取API数据的方法，并传递参数
 	getMusic(options.songId)
+})
+
+// 离开和隐藏该页面时：暂停计时器，停止播放
+onUnload(()=>{
+	console.log("页面：Unload")
+	cancelLyricIndex();
+	innerAudioContext.stop();
+})
+
+// 隐藏指的是：页面被遮挡，包括，浏览器切换tab，或被其他软件遮挡
+onHide(()=>{
+	console.log("页面：Hide")
+	cancelLyricIndex();
+	innerAudioContext.stop();
 })
 </script>
 
@@ -238,7 +345,27 @@ onLoad((options)=>{
 			right: 0;
 			bottom: 0;
 			margin: auto;
+			
+			// 动画move 的默认状态
+			animation: 10s linear move infinite;
+			animation-play-state: paused;
+			
 		}
+		// 通过该控制器改变动画的默认状态
+		.detail-play-run{
+			// 开启动画
+			animation-play-state: running;
+		}
+		// 配置动画
+		@keyframes move{
+			from{
+				transform: rotate(0deg);
+			}
+			to{
+				transform: rotate(360deg);
+			}
+		}
+		
 		// 播放与暂停按钮
 		text{
 			width: 100rpx; //先调整容器大小，才能定为
@@ -281,6 +408,8 @@ onLoad((options)=>{
 		color: #6f6e73;
 		
 		.detail-lyric-wrap{
+			// 使歌词滚动
+			transition: 0.5s;
 			
 			.detail-lyric-item{
 			}
