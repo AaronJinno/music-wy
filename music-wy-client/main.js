@@ -13,10 +13,15 @@ app.$mount()
 
 // #ifdef VUE3
 import { createSSRApp } from 'vue'
+// 引入pinia
+import { createPinia } from 'pinia'
+
 export function createApp() {
   const app = createSSRApp(App)
+  app.use(createPinia());
   return {
-    app
+    app,
+	// pinia,//此处必须将pinia返回
   }
 }
 // #endif

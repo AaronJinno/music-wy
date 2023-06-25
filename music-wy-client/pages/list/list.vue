@@ -78,6 +78,9 @@ import {onLoad} from '@dcloudio/uni-app'
 import { list } from  '../../common/api.js'
 import musichead from "../../componnets/musichead/musichead.vue"
 import '@/common/css/iconfont.css' 
+// 引入store 
+import { useListIds } from '@/stores/list_ids.js'
+
 
 let playlist = ref({
 	//对于取嵌套的对象内的值，就要在这里列出来，防止报错
@@ -117,11 +120,14 @@ onLoad((options)=>{
 		// playlist = res.data.playlist; //将歌单详情数据赋值给playlist	
 		playlist.value = res.data.playlist;
 		privileges.value = res.data.privileges;
-		
+		// 将歌单id列表储存进store 
+		let ids = useListIds();
+		ids.topListIds = res.data.playlist.trackIds
+	
+	
 		isLoading.value = false;
 		//获取数据后就隐藏loading 组件
 		uni.hideLoading();
-		console.log(playlist);
 	}).catch((err)=>{
 		console.log("歌单详情获取失败：", err);
 	})

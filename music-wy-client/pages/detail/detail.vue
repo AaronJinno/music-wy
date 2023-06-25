@@ -108,6 +108,9 @@ import { ref,computed} from 'vue'
 import '@/common/css/iconfont.css' 
 import { songDetail, songSimi, songComment, songLyric, songUrl } from '../../common/api.js'
 
+// 引入store 
+import { useListIds } from '@/stores/list_ids.js'
+
 // 歌曲详细信息
 let songDetailData = ref({
 	al:{} //防止报错
@@ -285,6 +288,12 @@ function getMusic(songId){
 				cancelLyricIndex();
 			})
 			
+			// 监听自然播放结束事件，好继续播放下一首
+			innerAudioContext.onEnded((res)=>{
+				// 重新调用获取歌曲信息的方法，此时从store获取下一首歌曲的id
+				getMusic(ids.nextId);
+			})
+			
 			innerAudioContext.onError((res) => {
 			  console.log(res.errMsg);
 			  console.log(res.errCode);
@@ -301,10 +310,20 @@ function formatTimetoSec(v){
 	return (Number(arr[0]*60) + Number(arr[1])).toFixed(1);
 }
 
+let ids = useListIds()
 onLoad((options)=>{
 	console.log(options.songId);
 	//在这里调用获取API数据的方法，并传递参数
 	getMusic(options.songId)
+	// 将当前歌曲的id的下一首id，存入store ，因此要遍历对比id列表进行储存
+	let ids = useListIds()
+	for(let i=0;i<ids.topListIds.length;i++){
+		if(ids.topListIds[i].id == options.songId){
+			ids.nextId = ids.topListIds[i+1].id;
+		}
+	}
+	console.log("nextId:",ids.nextId);
+	
 })
 
 // 离开和隐藏该页面时：暂停计时器，停止播放
